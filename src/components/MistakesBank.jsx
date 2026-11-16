@@ -1,8 +1,11 @@
 import React, { useState, useMemo } from 'react';
+import Pagination from './Pagination';
 
 export default function MistakesBank({ mistakesList, startMistakesQuiz, clearMistakes, removeSingleMistake }) {
   const [search, setSearch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   // Subjects breakdown
   const subjects = useMemo(() => {
@@ -25,9 +28,28 @@ export default function MistakesBank({ mistakesList, startMistakesQuiz, clearMis
     });
   }, [mistakesList, selectedSubject, search]);
 
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 100, behavior: 'smooth' });
+  };
+
+  const handleClearClick = () => {
+    if (window.confirm('Clear all questions from your Mistakes Bank? Your overall exam history will not be affected.')) {
+      clearMistakes();
+      setPage(1);
+    }
+  };
+
   return (
     <div className="animate-fade-in" style={{ padding: '2rem 0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <span className="badge" style={{ background: 'rgba(244,63,94,0.15)', color: 'var(--accent-rose)', borderColor: 'rgba(244,63,94,0.3)', marginBottom: '0.5rem' }}>
             <i className="fa-solid fa-triangle-exclamation"></i> Spaced Repetition Mistakes Review
@@ -37,9 +59,9 @@ export default function MistakesBank({ mistakesList, startMistakesQuiz, clearMis
         </div>
 
         {mistakesList.length > 0 && (
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button className="btn-secondary" onClick={clearMistakes} style={{ color: 'var(--accent-rose)' }}>
-              <i className="fa-solid fa-trash"></i> Reset All Mistakes
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <button className="btn-secondary" onClick={handleClearClick} style={{ color: 'var(--accent-rose)' }}>
+              <i className="fa-solid fa-trash"></i> Clear Mistakes Bank
             </button>
 
             <button className="btn-primary" onClick={startMistakesQuiz}>
@@ -51,13 +73,13 @@ export default function MistakesBank({ mistakesList, startMistakesQuiz, clearMis
 
       {/* Filter and Search controls */}
       {mistakesList.length > 0 && (
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '260px' }}>
             <input
               type="text"
               placeholder="Search within mistakes..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
               style={{
                 width: '100%',
                 padding: '0.75rem 1rem',
@@ -73,7 +95,7 @@ export default function MistakesBank({ mistakesList, startMistakesQuiz, clearMis
 
           <select
             value={selectedSubject}
-            onChange={e => setSelectedSubject(e.target.value)}
+            onChange={e => { setSelectedSubject(e.target.value); setPage(1); }}
             style={{
               padding: '0.75rem 1rem',
               borderRadius: 'var(--radius-sm)',
@@ -98,34 +120,72 @@ export default function MistakesBank({ mistakesList, startMistakesQuiz, clearMis
           </div>
           <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Your Mistakes Bank is Clean!</h3>
           <p style={{ color: 'var(--text-muted)', maxWidth: '500px', margin: '0 auto' }}>
-            Great job! You have no pending incorrect questions. Keep practicing to test your knowledge.
+            Great job! You have no pending incorrect questions. Take timed exams or full practice sessions to test your knowledge.
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {filtered.map((q, idx) => (
-            <div key={q.id || idx} className="glass-panel" style={{ padding: '1.75rem', position: 'relative' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                <span className="badge">{q.category}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-subdued)' }}>MCQ #{q.id}</span>
-                  <button
-                    onClick={() => removeSingleMistake(q.id)}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--accent-rose)', cursor: 'pointer', fontSize: '0.9rem' }}
-                    title="Remove from Mistakes Bank"
-                  >
-                    <i className="fa-solid fa-xmark"></i>
-                  </button>
+        <>
+          {/* Top Pagination Controls */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              totalItems={filtered.length}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 15, 25, 50]}
+              itemLabel="incorrect questions"
+            />
+          </div>
+
+          {/* List of mistakes on current page */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.5rem' }}>
+            {paginated.length === 0 ? (
+              <div className="glass-panel text-center" style={{ padding: '2.5rem', color: 'var(--text-muted)' }}>
+                No mistakes match your filter criteria.
+              </div>
+            ) : (
+              paginated.map((q, idx) => (
+                <div key={q.id ? `mistake-q-${q.id}` : `mistake-idx-${idx}`} className="glass-panel" style={{ padding: '1.75rem', position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <span className="badge">{q.category}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-subdued)' }}>MCQ #{q.id}</span>
+                      <button
+                        onClick={() => removeSingleMistake(q.id)}
+                        aria-label={`Remove question ${q.id} from Mistakes Bank`}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--accent-rose)', cursor: 'pointer', fontSize: '0.9rem', padding: '0.2rem' }}
+                        title="Remove from Mistakes Bank"
+                      >
+                        <i className="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <h4 style={{ fontSize: '1.1rem', marginBottom: '1rem', lineHeight: 1.5 }}>{q.question}</h4>
+                  <div style={{ padding: '1rem', background: 'rgba(244,63,94,0.08)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--accent-rose)', color: 'var(--text-muted)', fontSize: '0.92rem' }}>
+                    <strong>Correct Answer:</strong> Option {q.correct_answer.toUpperCase()}
+                    {q.explanation && <div style={{ marginTop: '0.5rem' }}>{q.explanation}</div>}
+                  </div>
                 </div>
-              </div>
-              <h4 style={{ fontSize: '1.1rem', marginBottom: '1rem', lineHeight: 1.5 }}>{q.question}</h4>
-              <div style={{ padding: '1rem', background: 'rgba(244,63,94,0.08)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--accent-rose)', color: 'var(--text-muted)', fontSize: '0.92rem' }}>
-                <strong>Correct Answer:</strong> Option {q.correct_answer.toUpperCase()}
-                {q.explanation && <div style={{ marginTop: '0.5rem' }}>{q.explanation}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
+              ))
+            )}
+          </div>
+
+          {/* Bottom Pagination Controls */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              totalItems={filtered.length}
+              pageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 15, 25, 50]}
+              itemLabel="incorrect questions"
+            />
+          )}
+        </>
       )}
     </div>
   );

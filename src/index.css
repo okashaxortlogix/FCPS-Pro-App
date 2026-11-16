@@ -37,15 +37,15 @@
   --shadow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
-/* Light mode overrides if toggled */
+/* Light mode overrides (UX-07) */
 body.light-theme {
   --bg-main: #f8fafc;
   --bg-card: #ffffff;
   --bg-card-hover: #f1f5f9;
-  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass: rgba(255, 255, 255, 0.88);
 
   --border-subtle: #e2e8f0;
-  --border-glow: rgba(56, 189, 248, 0.4);
+  --border-glow: rgba(6, 182, 212, 0.4);
 
   --text-main: #0f172a;
   --text-muted: #475569;
@@ -78,7 +78,7 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Dark Mode */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -87,10 +87,22 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--bg-main);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-cyan);
+}
+
+/* Custom Scrollbar - Light Mode */
+body.light-theme ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+body.light-theme ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: var(--radius-full);
+}
+body.light-theme ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-cyan);
 }
 
@@ -169,6 +181,15 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(6, 182, 212, 0.25);
 }
 
+/* Form input support in light mode */
+body.light-theme input,
+body.light-theme select,
+body.light-theme textarea {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -177,4 +198,82 @@ h1, h2, h3, h4, h5, h6 {
 
 .animate-fade-in {
   animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Split Question Layout (Question Statement Left, Options Block Right) */
+.exam-split-container {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 940px) {
+  .exam-split-container {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.question-statement-panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.75rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.options-block-panel {
+  background: rgba(21, 28, 44, 0.45);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+body.light-theme .question-statement-panel {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+body.light-theme .options-block-panel {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+/* Print Styles for Printable Reports & Clean PDF Export */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    background-image: none !important;
+  }
+
+  header, footer, nav, .no-print, button {
+    display: none !important;
+  }
+
+  .glass-panel {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #cccccc !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .gradient-text {
+    background: none !important;
+    -webkit-text-fill-color: #000000 !important;
+    color: #000000 !important;
+  }
+
+  .printable-report {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    border: none !important;
+  }
 }

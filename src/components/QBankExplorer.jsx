@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import Pagination from './Pagination';
 
 export default function QBankExplorer({ questions, bookmarks, toggleBookmark, addToast }) {
   const [search, setSearch] = useState('');
@@ -6,7 +7,7 @@ export default function QBankExplorer({ questions, bookmarks, toggleBookmark, ad
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(20);
 
   // Extract categories
   const categories = useMemo(() => {
@@ -21,7 +22,7 @@ export default function QBankExplorer({ questions, bookmarks, toggleBookmark, ad
   // Filtered list
   const filtered = useMemo(() => {
     return questions.filter(q => {
-      const matchBookmark = !showBookmarksOnly || !!bookmarks[q.id];
+      const matchBookmark = !showBookmarksOnly || !!bookmarks?.[q.id];
       const matchCat = selectedCategory === 'ALL' || q.category.toLowerCase().includes(selectedCategory.toLowerCase());
       const matchQuery = !search.trim() || 
         q.question.toLowerCase().includes(search.toLowerCase()) || 
@@ -31,25 +32,48 @@ export default function QBankExplorer({ questions, bookmarks, toggleBookmark, ad
     });
   }, [questions, selectedCategory, search, showBookmarksOnly, bookmarks]);
 
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+
   const paginated = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
-  }, [filtered, page]);
+  }, [filtered, page, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 100, behavior: 'smooth' });
+  };
 
-  const copyExplanation = (text) => {
-    navigator.clipboard.writeText(text);
-    addToast('Explanation copied to clipboard', 'info');
+  // Safe clipboard copying
+  const copyExplanation = async (text) => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        addToast('Explanation copied to clipboard', 'info');
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        addToast('Explanation copied to clipboard', 'info');
+      }
+    } catch (err) {
+      addToast('Unable to copy text to clipboard', 'error');
+    }
   };
 
   return (
     <div className="animate-fade-in" style={{ padding: '2rem 0' }}>
       {/* Search & Filter Header */}
-      <div style={{ marginBottom: '2rem' }}>
+      <div style={{ marginBottom: '1.75rem' }}>
+        <div className="badge" style={{ marginBottom: '0.5rem' }}>
+          <i className="fa-solid fa-book-medical"></i> Complete Catalog
+        </div>
         <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>QBank Catalog Explorer</h2>
         <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
-          Instantly search through all 3,967 FCPS & MBBS clinical questions, categories, and explanations.
+          Search and browse through all {questions.length.toLocaleString()} FCPS & MBBS clinical questions, categories, and verified explanations.
         </p>
 
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
@@ -105,132 +129,147 @@ export default function QBankExplorer({ questions, bookmarks, toggleBookmark, ad
               borderColor: showBookmarksOnly ? 'var(--accent-amber)' : 'var(--border-subtle)'
             }}
           >
-            <i className="fa-solid fa-bookmark"></i> {showBookmarksOnly ? 'All Questions' : 'Saved Bookmarks'}
+            <i className="fa-solid fa-bookmark"></i> {showBookmarksOnly ? 'Showing Bookmarks' : 'Saved Bookmarks'}
           </button>
         </div>
       </div>
 
-      {/* Result Stats */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-        <span>Showing {filtered.length.toLocaleString()} matching questions</span>
-        <span>Page {page} of {totalPages || 1}</span>
+      {/* Top Pagination Controls */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          itemLabel="questions"
+        />
       </div>
 
       {/* Questions List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
-        {paginated.map((q) => {
-          const isExpanded = expandedId === q.id;
-          const isBookmarked = !!bookmarks[q.id];
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.75rem' }}>
+        {paginated.length === 0 ? (
+          <div className="glass-panel text-center" style={{ padding: '3.5rem 1.5rem', color: 'var(--text-muted)' }}>
+            <i className="fa-solid fa-magnifying-glass" style={{ fontSize: '2.2rem', marginBottom: '1rem', color: 'var(--text-subdued)' }}></i>
+            <h3 style={{ marginBottom: '0.4rem' }}>No questions found</h3>
+            <p>Try adjusting your search query or subject filters.</p>
+          </div>
+        ) : (
+          paginated.map((q) => {
+            const isExpanded = expandedId === q.id;
+            const isBookmarked = !!bookmarks?.[q.id];
 
-          return (
-            <div key={q.id} className="glass-panel" style={{ padding: '1.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-                <span className="badge">{q.category}</span>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-subdued)', fontWeight: 600 }}>MCQ #{q.id}</span>
+            return (
+              <div key={q.id} className="glass-panel" style={{ padding: '1.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                  <span className="badge">{q.category}</span>
                   
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-subdued)', fontWeight: 600 }}>MCQ #{q.id}</span>
+                    
+                    <button
+                      onClick={() => toggleBookmark(q.id)}
+                      aria-label={isBookmarked ? "Remove bookmark" : "Save bookmark"}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: isBookmarked ? 'var(--accent-amber)' : 'var(--text-subdued)',
+                        cursor: 'pointer',
+                        fontSize: '1.1rem'
+                      }}
+                      title={isBookmarked ? 'Remove Bookmark' : 'Save Bookmark'}
+                    >
+                      <i className={`fa-${isBookmarked ? 'solid' : 'regular'} fa-bookmark`}></i>
+                    </button>
+                  </div>
+                </div>
+
+                <h4 style={{ fontSize: '1.1rem', lineHeight: 1.5, marginBottom: '1.25rem' }}>{q.question}</h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
+                  {['A', 'B', 'C', 'D', 'E'].map(letter => {
+                    const optText = q[`option_${letter.toLowerCase()}`];
+                    if (!optText) return null;
+                    const isCorrect = letter.toUpperCase() === q.correct_answer.toUpperCase();
+                    return (
+                      <div
+                        key={letter}
+                        style={{
+                          padding: '0.65rem 0.85rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: isCorrect && isExpanded ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.04)',
+                          border: isCorrect && isExpanded ? '1px solid var(--accent-emerald)' : '1px solid var(--border-subtle)',
+                          fontSize: '0.9rem',
+                          color: isCorrect && isExpanded ? 'var(--accent-emerald)' : 'var(--text-main)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.6rem'
+                        }}
+                      >
+                        <strong style={{ opacity: 0.7 }}>{letter}.</strong> {optText}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                   <button
-                    onClick={() => toggleBookmark(q.id)}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: isBookmarked ? 'var(--accent-amber)' : 'var(--text-subdued)',
-                      cursor: 'pointer',
-                      fontSize: '1.1rem'
-                    }}
-                    title={isBookmarked ? 'Remove Bookmark' : 'Save Bookmark'}
+                    onClick={() => setExpandedId(isExpanded ? null : q.id)}
+                    className="btn-secondary"
+                    style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
                   >
-                    <i className={`fa-${isBookmarked ? 'solid' : 'regular'} fa-bookmark`}></i>
+                    <i className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-lightbulb'}`} style={{ color: 'var(--accent-cyan)' }}></i>
+                    {isExpanded ? 'Hide Answer & Explanation' : 'Reveal Answer & Explanation'}
                   </button>
                 </div>
-              </div>
 
-              <h4 style={{ fontSize: '1.1rem', lineHeight: 1.5, marginBottom: '1.25rem' }}>{q.question}</h4>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.65rem', marginBottom: '1rem' }}>
-                {['A', 'B', 'C', 'D', 'E'].map(letter => {
-                  const optText = q[`option_${letter.toLowerCase()}`];
-                  if (!optText) return null;
-                  const isCorrect = letter.toUpperCase() === q.correct_answer.toUpperCase();
-                  return (
-                    <div
-                      key={letter}
-                      style={{
-                        padding: '0.65rem 0.85rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: isCorrect && isExpanded ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.04)',
-                        border: isCorrect && isExpanded ? '1px solid var(--accent-emerald)' : '1px solid var(--border-subtle)',
-                        fontSize: '0.9rem',
-                        color: isCorrect && isExpanded ? 'var(--accent-emerald)' : 'var(--text-main)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.6rem'
-                      }}
-                    >
-                      <strong style={{ opacity: 0.7 }}>{letter}.</strong> {optText}
+                {isExpanded && (
+                  <div className="animate-fade-in" style={{
+                    marginTop: '1.25rem',
+                    padding: '1.25rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(6, 182, 212, 0.08)',
+                    borderLeft: '4px solid var(--accent-cyan)',
+                    position: 'relative'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <div style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>
+                        Correct Answer: Option {q.correct_answer.toUpperCase()}
+                      </div>
+                      {q.explanation && (
+                        <button
+                          onClick={() => copyExplanation(q.explanation)}
+                          aria-label="Copy explanation to clipboard"
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem' }}
+                          title="Copy explanation"
+                        >
+                          <i className="fa-regular fa-copy"></i> Copy
+                        </button>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <button
-                  onClick={() => setExpandedId(isExpanded ? null : q.id)}
-                  className="btn-secondary"
-                  style={{ padding: '0.4rem 0.85rem', fontSize: '0.85rem' }}
-                >
-                  <i className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-lightbulb'}`} style={{ color: 'var(--accent-cyan)' }}></i>
-                  {isExpanded ? 'Hide Answer & Explanation' : 'Reveal Answer & Explanation'}
-                </button>
-              </div>
-
-              {isExpanded && (
-                <div className="animate-fade-in" style={{
-                  marginTop: '1.25rem',
-                  padding: '1.25rem',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(6, 182, 212, 0.08)',
-                  borderLeft: '4px solid var(--accent-cyan)',
-                  position: 'relative'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                    <div style={{ color: 'var(--accent-cyan)', fontWeight: 700 }}>
-                      Correct Answer: Option {q.correct_answer.toUpperCase()}
-                    </div>
-                    {q.explanation && (
-                      <button
-                        onClick={() => copyExplanation(q.explanation)}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem' }}
-                        title="Copy explanation"
-                      >
-                        <i className="fa-regular fa-copy"></i> Copy
-                      </button>
-                    )}
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.6 }}>
+                      {q.explanation || 'Detailed clinical vignette explanation.'}
+                    </p>
                   </div>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-                    {q.explanation || 'Detailed clinical vignette explanation.'}
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {/* Pagination Controls */}
+      {/* Bottom Pagination Controls */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', alignItems: 'center' }}>
-          <button className="btn-secondary" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
-            <i className="fa-solid fa-chevron-left"></i> Prev
-          </button>
-          <span style={{ padding: '0 1rem', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
-            Page {page} of {totalPages}
-          </span>
-          <button className="btn-secondary" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
-            Next <i className="fa-solid fa-chevron-right"></i>
-          </button>
-        </div>
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          itemLabel="questions"
+        />
       )}
     </div>
   );
